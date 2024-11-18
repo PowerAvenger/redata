@@ -262,7 +262,16 @@ def graficar_mix_queso(df_out_ratio_select_mix,colores_tecnologia):
     )
     graf_mix_queso.update_traces(textinfo='percent+label',
                                  textposition='inside',
-                                 insidetextorientation='horizontal')
+                                 insidetextorientation='horizontal'
+    )
+    
+    graf_mix_queso.update_layout(
+        title=dict(
+            text='Aportación al mix de generación (%)',
+            x=.5,
+            xanchor='center',
+        )
+    )
 
     return graf_mix_queso
 
