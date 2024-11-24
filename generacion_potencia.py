@@ -1,4 +1,3 @@
-# %%
 import requests
 import pandas as pd
 import plotly.express as px
@@ -39,14 +38,14 @@ def download_redata(category,widget,start_date,end_date,time_trunc):
 def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
     #montamos un dataframe de entrada con los datos de gen y pot
     df_in=pd.merge(df_in_gen,df_in_pot, on=['mes', 'mes_num','tecnologia'], how='outer',)
-    df_in['horas_gen']=round(df_in['gen_TWh']*1000/df_in['pot_GW'],1)
+    df_in['horas_eq']=round(df_in['gen_TWh']*1000/df_in['pot_GW'],1)
     df_in['gen_TWh']=round(df_in['gen_TWh'],1)
     df_in['pot_GW']=round(df_in['pot_GW'],1)
     #a partir del anterior, agrupamos por tecnología
     df_out_ratio=df_in.groupby('tecnologia').agg({
         'gen_TWh':'sum',
         'pot_GW':'last',
-        'horas_gen':'sum'
+        'horas_eq':'sum'
     })
     df_out_ratio=df_out_ratio.reset_index()
 
@@ -56,8 +55,8 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
     gen_total=round(df_out_ratio['gen_TWh'].sum(),1)
     pot_total=round(df_out_ratio['pot_GW'].sum(),1)
     #añadimos columnas FC y %mix
-    df_out_ratio['horas_gen']=df_out_ratio['horas_gen'].astype(int)
-    df_out_ratio['FC']=round(df_out_ratio['horas_gen']/horas,3)
+    df_out_ratio['horas_eq']=df_out_ratio['horas_eq'].astype(int)
+    df_out_ratio['FC']=round(df_out_ratio['horas_eq']/horas,3)
     df_out_ratio['%_mix']=round(df_out_ratio['gen_TWh']/gen_total,3)
 
     #creamos un df solo con las tecnologias seleccionadas
@@ -69,16 +68,17 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
     colores_tecnologia = {tec: colores[i % len(colores)] for i, tec in enumerate(tec_select)}
 
     #añadimos columna horas max para calcular un FC relativo al maximo teórico de cada tecnologia
-    df_out_ratio_select['horas_max']=horas_proporcional*df_out_ratio_select['tecnologia'].map(horas_tec_teoricas)
-    df_out_ratio_select['horas_max']=df_out_ratio_select['horas_max'].astype(int)
-    #calculamos el FC relativo según horas máximas
-    df_out_ratio_select['FC_rel']=round(df_out_ratio_select['horas_gen']/df_out_ratio_select['horas_max'],3)
+    df_out_ratio_select['horas_eq_max']=horas_proporcional*df_out_ratio_select['tecnologia'].map(horas_tec_teoricas)
+    df_out_ratio_select['horas_eq_max']=df_out_ratio_select['horas_eq_max'].astype(int)
+    #calculamos el FU factor de uso, en base a las horas equivalentes maximas
+    df_out_ratio_select['FU']=round(df_out_ratio_select['horas_eq']/df_out_ratio_select['horas_eq_max'],3)
+    df_out_ratio_select['FNU'] = 1 - df_out_ratio_select['FU']
     #calculamos el %mix
     df_out_ratio_select['%_mix']=round(df_out_ratio_select['gen_TWh']/gen_total,3)
 
     #DATAFRAMES DE SALIDA PARA LOS GRÁFICOS
     df_out_ratio_select_fc=df_out_ratio_select.sort_values(['FC'],ascending=False) #usado para bolas y FC barras
-    df_out_ratio_select_fcrel=df_out_ratio_select.sort_values(['FC_rel'],ascending=False)
+    df_out_ratio_select_fu=df_out_ratio_select.sort_values(['FU'],ascending=False)
     df_out_ratio_select_mix=df_out_ratio_select.sort_values(['%_mix'],ascending=False)
 
     #añadimos al mix 'resto' de tecnologías
@@ -91,11 +91,11 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
         'tecnologia': 'Resto',
         'gen_TWh': gen_resto,
         'pot_GW': pot_resto,  # Opcional: si no aplica, puedes dejar como None
-        'horas_gen': None,
+        'horas_eq': None,
         'FC': None,
         '%_mix': mix_resto,
-        'horas_max': None,
-        'FC_rel': None
+        'horas_eq_max': None,
+        'FU': None
         }
     print(pot_total,pot_resto)
     df_out_ratio_select_mix=pd.concat([df_out_ratio_select_mix,pd.DataFrame([nueva_fila])],ignore_index=True)
@@ -103,10 +103,10 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
 
     
 
-    return df_out_ratio_select_fc,df_out_ratio_select_fcrel,df_out_ratio_select_mix,colores_tecnologia
+    return df_out_ratio_select_fc, df_out_ratio_select_fu, df_out_ratio_select_mix, colores_tecnologia
 
-def graficar_bolas(df_out_ratio_select_fc,colores_tecnologia):
-    graf_bolas=px.scatter(df_out_ratio_select_fc,x='pot_GW',y='gen_TWh',size='horas_gen', 
+def graficar_bolas(df_out_ratio_select_fc, colores_tecnologia):
+    graf_bolas=px.scatter(df_out_ratio_select_fc,x='pot_GW',y='gen_TWh',size='horas_eq', 
                         size_max=100, color=df_out_ratio_select_fc['tecnologia'], 
                         hover_name=df_out_ratio_select_fc['tecnologia'],
                         color_discrete_map=colores_tecnologia,
@@ -145,7 +145,7 @@ def graficar_bolas(df_out_ratio_select_fc,colores_tecnologia):
 
 
 #GRÁFICO. PRIMERO DE BARRAS. FC
-def graficar_FC(df_out_ratio_select_fc,colores_tecnologia):
+def graficar_FC(df_out_ratio_select_fc, colores_tecnologia):
     graf_FC=px.bar(df_out_ratio_select_fc,x='FC',y='tecnologia',
                         orientation='h',
                         color=df_out_ratio_select_fc['tecnologia'], 
@@ -155,7 +155,7 @@ def graficar_FC(df_out_ratio_select_fc,colores_tecnologia):
                         text_auto=True,
                         hover_data={
                             'tecnologia':False,
-                            'horas_gen':True
+                            'horas_eq':True
                         },
                         text='FC',
                         
@@ -176,32 +176,40 @@ def graficar_FC(df_out_ratio_select_fc,colores_tecnologia):
         showlegend=False,
         yaxis=dict(visible=True, title_text=None),
     )
+
+    graf_FC.update_xaxes(
+        showgrid=True,
+        range=[0,1.01],
+        dtick=0.2,
+        tickmode='linear'
+    )
+
     return graf_FC
 
-#GRÁFICO: SEGUNDO DE BARRAS. FC RELATIVO
-def graficar_FC_rel(df_out_ratio_select_fcrel, colores_tecnologia):
-    graf_FC_rel=px.bar(df_out_ratio_select_fcrel,x='FC_rel',y='tecnologia',
+#GRÁFICO: SEGUNDO DE BARRAS. FU
+def graficar_FU(df_out_ratio_select_fu, colores_tecnologia):
+    graf_FU=px.bar(df_out_ratio_select_fu, x='FU', y='tecnologia',
                         orientation='h',
-                        color=df_out_ratio_select_fcrel['tecnologia'], 
-                        hover_name=df_out_ratio_select_fcrel['tecnologia'],
+                        color=df_out_ratio_select_fu['tecnologia'], 
+                        hover_name=df_out_ratio_select_fu['tecnologia'],
                         color_discrete_map=colores_tecnologia,
                         width=1300,
                         text_auto=True,
                         hover_data={
                             'tecnologia':False,
-                            'horas_max':True
+                            'horas_eq_max':True
                         },
-                        text='FC_rel'
+                        text='FU'
                         
                         )
-    graf_FC_rel.update_traces(
+    graf_FU.update_traces(
         texttemplate='%{text:.1%}',
         textposition='inside', 
         
         )
-    graf_FC_rel.update_layout(
+    graf_FU.update_layout(
         title=dict(
-            text='Factor de carga según horas máximas (%)',
+            text='Factor de Uso. Según horas máximas equivalentes (%)',
             x=.5,
             xanchor='center',
         ),
@@ -211,7 +219,21 @@ def graficar_FC_rel(df_out_ratio_select_fcrel, colores_tecnologia):
         yaxis=dict(visible=True, title_text=None),
     )
 
-    return graf_FC_rel
+    graf_FU.add_bar(
+        x=df_out_ratio_select_fu['FNU'],
+        y=df_out_ratio_select_fu['tecnologia'],
+        orientation='h',
+        marker_color=df_out_ratio_select_fu['tecnologia'].map(colores_tecnologia),
+        marker_opacity=0.3,  # Mayor transparencia
+        hoverinfo='skip',  # Opcional: no mostrar información de estas barras en hover
+        showlegend=False
+    )
+
+    graf_FU.update_xaxes(
+        showgrid=True
+    )
+
+    return graf_FU
 
 def graficar_mix(df_out_ratio_select_mix,colores_tecnologia):
     graf_mix=px.bar(df_out_ratio_select_mix,x='%_mix',y='tecnologia',
@@ -246,6 +268,10 @@ def graficar_mix(df_out_ratio_select_mix,colores_tecnologia):
         bargap=.4,
         showlegend=False,
         yaxis=dict(visible=True, title_text=None),
+    )
+
+    graf_mix.update_xaxes(
+        showgrid=True
     )
     return graf_mix
 
