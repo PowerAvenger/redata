@@ -57,7 +57,7 @@ print(horas,horas_proporcional)
 horas_eq_max={
     'Ciclo combinado' : 6000,
     'Nuclear' : 8760,
-    'Solar fotovoltaica' : 2000,
+    'Solar fotovoltaica' : 1500,
     'Eólica' : 2200,
     'Hidráulica' : 4000,
     'Cogeneración' : 7000,
