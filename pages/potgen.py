@@ -13,13 +13,6 @@ fecha_hoy=datetime.now().date()
 mes_hoy=fecha_hoy.month
 año_hoy=fecha_hoy.year
 
-
-
-
-
-
-
-
 lista_años=[2018,2019,2020,2021,2022,2023,2024]
 año_select=st.selectbox('Selecciona un año', options=lista_años, index=len(lista_años)-1)
 
@@ -57,11 +50,12 @@ print(horas,horas_proporcional)
 horas_eq_max={
     'Ciclo combinado' : 6000,
     'Nuclear' : 8760,
-    'Solar fotovoltaica' : 1500,
+    'Solar fotovoltaica' : 2000,
     'Eólica' : 2200,
     'Hidráulica' : 4000,
     'Cogeneración' : 7000,
-    'Turbinación bombeo' : 2000}
+    'Turbinación bombeo' : 2000
+    }
 
 #para la visualización del código en vertical. NO usado.
 code_bis = f"""horas_eq_max = {{
