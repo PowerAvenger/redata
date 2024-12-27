@@ -7,6 +7,7 @@ from generacion_potencia import download_redata, tablas, graficar_bolas, grafica
 
 
 st.subheader('Tecnologías de generación', divider='rainbow')
+st.markdown("¡Sígueme en [Bluesky](https://bsky.app/profile/poweravenger.bsky.social)!")
 st.info('Todos los datos son elaborados a partir de REData / Generación / Estructura generación y Potencia instalada (sistema eléctrico nacional todas las tecnologías). Rango temporal: Mensual, siendo los datos agrupados por años.',icon="ℹ️")
 
 fecha_hoy=datetime.now().date()
