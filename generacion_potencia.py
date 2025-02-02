@@ -6,7 +6,7 @@ import streamlit as st
 
 
 @st.cache_data
-def download_redata(category,widget,start_date,end_date,time_trunc):
+def download_redata(category, widget, start_date, end_date, time_trunc):
     column_mapping = {
         "estructura-generacion": {"valor": "gen_TWh", "porcentaje": "porc_gen", "coef":1000000},
         "potencia-instalada": {"valor": "pot_GW", "porcentaje": "porc_pot", "coef": 1000}
@@ -35,19 +35,19 @@ def download_redata(category,widget,start_date,end_date,time_trunc):
     
     return df_in_gen
 
-def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
+def tablas(df_in_gen,df_in_pot, horas, horas_proporcional, horas_tec_teoricas):
     #montamos un dataframe de entrada con los datos de gen y pot
-    df_in=pd.merge(df_in_gen,df_in_pot, on=['mes', 'mes_num','tecnologia'], how='outer',)
-    df_in['horas_eq']=round(df_in['gen_TWh']*1000/df_in['pot_GW'],1)
-    df_in['gen_TWh']=round(df_in['gen_TWh'],1)
-    df_in['pot_GW']=round(df_in['pot_GW'],1)
+    df_in  =pd.merge(df_in_gen,df_in_pot, on = ['mes', 'mes_num', 'tecnologia'], how = 'outer',)
+    df_in['horas_eq'] = round(df_in['gen_TWh']  *1000 / df_in['pot_GW'], 1)
+    df_in['gen_TWh'] = round(df_in['gen_TWh'], 1)
+    df_in['pot_GW'] = round(df_in['pot_GW'], 1)
     #a partir del anterior, agrupamos por tecnología
-    df_out_ratio=df_in.groupby('tecnologia').agg({
+    df_out_ratio = df_in.groupby('tecnologia').agg({
         'gen_TWh':'sum',
         'pot_GW':'last',
         'horas_eq':'sum'
     })
-    df_out_ratio=df_out_ratio.reset_index()
+    df_out_ratio = df_out_ratio.reset_index()
 
     #eliminamos las filas de gen y pot total
     df_out_ratio=df_out_ratio[~df_out_ratio['tecnologia'].isin(['Generación total','Potencia total'])]
@@ -68,21 +68,21 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
     colores_tecnologia = {tec: colores[i % len(colores)] for i, tec in enumerate(tec_select)}
 
     #añadimos columna horas max para calcular un FC relativo al maximo teórico de cada tecnologia
-    df_out_ratio_select['horas_eq_max']=horas_proporcional*df_out_ratio_select['tecnologia'].map(horas_tec_teoricas)
+    df_out_ratio_select['horas_eq_max'] = horas_proporcional * df_out_ratio_select['tecnologia'].map(horas_tec_teoricas)
     df_out_ratio_select['horas_eq_max']=df_out_ratio_select['horas_eq_max'].astype(int)
     #calculamos el FU factor de uso, en base a las horas equivalentes maximas
     df_out_ratio_select['FU']=round(df_out_ratio_select['horas_eq']/df_out_ratio_select['horas_eq_max'],3)
     df_out_ratio_select['FNU'] = 1 - df_out_ratio_select['FU']
     #calculamos el %mix
-    df_out_ratio_select['%_mix']=round(df_out_ratio_select['gen_TWh']/gen_total,3)
+    df_out_ratio_select['%_mix'] = round(df_out_ratio_select['gen_TWh'] / gen_total, 3)
 
     #DATAFRAMES DE SALIDA PARA LOS GRÁFICOS
     df_out_ratio_select_fc=df_out_ratio_select.sort_values(['FC'],ascending=False) #usado para bolas y FC barras
     df_out_ratio_select_fu=df_out_ratio_select.sort_values(['FU'],ascending=False)
-    df_out_ratio_select_mix=df_out_ratio_select.sort_values(['%_mix'],ascending=False)
+    df_out_ratio_select_mix = df_out_ratio_select.sort_values(['%_mix'], ascending = False)
 
     #añadimos al mix 'resto' de tecnologías
-    mix_tec_select=df_out_ratio_select_mix['%_mix'].sum()
+    mix_tec_select = df_out_ratio_select_mix['%_mix'].sum()
     mix_resto=round(1-mix_tec_select,3)
     gen_resto=round(gen_total-df_out_ratio_select_mix['gen_TWh'].sum(),1)
     pot_resto=pot_total-df_out_ratio_select_mix['pot_GW'].sum()
@@ -90,7 +90,7 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
     nueva_fila = {
         'tecnologia': 'Resto',
         'gen_TWh': gen_resto,
-        'pot_GW': pot_resto,  # Opcional: si no aplica, puedes dejar como None
+        'pot_GW': pot_resto,  # Opcional: si no aplica, puedo dejar como None
         'horas_eq': None,
         'FC': None,
         '%_mix': mix_resto,
@@ -105,12 +105,12 @@ def tablas(df_in_gen,df_in_pot, horas, horas_proporcional,horas_tec_teoricas):
 
     return df_out_ratio_select_fc, df_out_ratio_select_fu, df_out_ratio_select_mix, colores_tecnologia
 
+# GRAFICO 1. DE BOLAS --------------------------------------------------------------------------------------------
 def graficar_bolas(df_out_ratio_select_fc, colores_tecnologia):
-    graf_bolas=px.scatter(df_out_ratio_select_fc,x='pot_GW',y='gen_TWh',size='horas_eq', 
-                        size_max=100, color=df_out_ratio_select_fc['tecnologia'], 
-                        hover_name=df_out_ratio_select_fc['tecnologia'],
-                        color_discrete_map=colores_tecnologia,
-                        #width=1300,
+    graf_bolas=px.scatter(df_out_ratio_select_fc, x = 'pot_GW', y = 'gen_TWh', size = 'horas_eq', 
+                        size_max = 100, color = df_out_ratio_select_fc['tecnologia'], 
+                        hover_name = df_out_ratio_select_fc['tecnologia'],
+                        color_discrete_map = colores_tecnologia,
                         hover_data={
                             'tecnologia':False,
                             'FC':True
@@ -121,17 +121,17 @@ def graficar_bolas(df_out_ratio_select_fc, colores_tecnologia):
         textposition='middle center',  # Coloca el texto en el centro de las burbujas
         )
     graf_bolas.update_layout(
-        title=dict(
-            text='Potencia instalada, generación y sus horas equivalentes',
-            x=.5,
-            xanchor='center'
+        #title=dict(
+        #    text='Potencia instalada, generación y sus horas equivalentes',
+        #    x=.5,
+        #    xanchor='center'
 
-        ),
+        #),
         legend=dict(
             title='',
             orientation='h',
-            yanchor='bottom',
-            y=-.5,
+            yanchor='top',
+            y=1.1,
             xanchor='center',
             x=.5
         ),
@@ -144,14 +144,13 @@ def graficar_bolas(df_out_ratio_select_fc, colores_tecnologia):
     return graf_bolas
 
 
-#GRÁFICO. PRIMERO DE BARRAS. FC
+#GRÁFICO 2. PRIMERO DE BARRAS. FC--------------------------------------------------------------------------
 def graficar_FC(df_out_ratio_select_fc, colores_tecnologia):
     graf_FC=px.bar(df_out_ratio_select_fc,x='FC',y='tecnologia',
                         orientation='h',
                         color=df_out_ratio_select_fc['tecnologia'], 
                         hover_name=df_out_ratio_select_fc['tecnologia'],
                         color_discrete_map=colores_tecnologia,
-                        #width=1300,
                         text_auto=True,
                         hover_data={
                             'tecnologia':False,
@@ -166,11 +165,11 @@ def graficar_FC(df_out_ratio_select_fc, colores_tecnologia):
         
         )
     graf_FC.update_layout(
-        title=dict(
-            text='Factor de carga (%)',
-            x=.5,
-            xanchor='center',
-        ),
+        #title=dict(
+        #    text='Factor de carga (%)',
+        #    x=.5,
+        #    xanchor='center',
+        #),
         xaxis_tickformat='.0%',
         bargap=.4,
         showlegend=False,
@@ -186,7 +185,7 @@ def graficar_FC(df_out_ratio_select_fc, colores_tecnologia):
 
     return graf_FC
 
-#GRÁFICO: SEGUNDO DE BARRAS. FU
+#GRÁFICO 3: SEGUNDO DE BARRAS. FU-----------------------------------------------------------------------------------------
 def graficar_FU(df_out_ratio_select_fu, colores_tecnologia):
     graf_FU=px.bar(df_out_ratio_select_fu, x='FU', y='tecnologia',
                         orientation='h',
@@ -208,11 +207,11 @@ def graficar_FU(df_out_ratio_select_fu, colores_tecnologia):
         
         )
     graf_FU.update_layout(
-        title=dict(
-            text='Factor de Uso. Según horas máximas equivalentes (%)',
-            x=.5,
-            xanchor='center',
-        ),
+        #title=dict(
+        #    text='Factor de Uso. Según horas máximas equivalentes (%)',
+        #    x=.5,
+        #    xanchor='center',
+        #),
         xaxis_tickformat='.0%',
         bargap=.4,
         showlegend=False,
@@ -235,98 +234,73 @@ def graficar_FU(df_out_ratio_select_fu, colores_tecnologia):
 
     return graf_FU
 
-def graficar_mix(df_out_ratio_select_mix,colores_tecnologia):
-    graf_mix=px.bar(df_out_ratio_select_mix,x='%_mix',y='tecnologia',
-                        orientation='h',
-                        color=df_out_ratio_select_mix['tecnologia'], 
-                        hover_name=df_out_ratio_select_mix['tecnologia'],
-                        color_discrete_map=colores_tecnologia,
-                        width=1300,
-                        text_auto=True,
-                        hover_data={
-                            'tecnologia':False,
-                            'gen_TWh':True,
-                            'pot_GW':True
+# GRAFICO 4. MIX GENERACION EN BARRAS---------------------------------------------
+def graficar_mix(df_out_ratio_select_mix, colores_tecnologia):
+    graf_mix = px.bar(df_out_ratio_select_mix, x = '%_mix', y = 'tecnologia',
+                        orientation = 'h',
+                        color = df_out_ratio_select_mix['tecnologia'], 
+                        hover_name = df_out_ratio_select_mix['tecnologia'],
+                        color_discrete_map = colores_tecnologia,
+                        #width=1300,
+                        text_auto = True,
+                        hover_data = {
+                            'tecnologia' : False,
+                            'gen_TWh' : True,
+                            'pot_GW': True
                         },
-                        text='%_mix'
+                        text = '%_mix'
                         
                         )
     graf_mix.update_traces(
         #formateamos el texto de las barras
-        texttemplate='%{text:.1%}',
-        textposition='inside',  # Coloca el texto en el centro de las burbujas
+        texttemplate = '%{text:.1%}',
+        textposition = 'inside',  # Coloca el texto en el centro de las burbujas
         #textfont=dict(size=12, color="black"),  # Tamaño y color del texto
         )
     graf_mix.update_layout(
-        title=dict(
-            text='Aportación al mix de generación (%)',
-            x=.5,
-            xanchor='center',
-            
-        ),
-        xaxis_tickformat='.0%',
-        bargap=.4,
-        showlegend=False,
-        yaxis=dict(visible=True, title_text=None),
+        #title=dict(
+        #    text='Aportación al mix de generación (%)',
+        #    x=.5,
+        #    xanchor='center',
+        #),
+        xaxis_tickformat = '.0%',
+        bargap = .4,
+        showlegend = False,
+        yaxis = dict(visible = True, title_text = None),
     )
 
     graf_mix.update_xaxes(
-        showgrid=True
+        showgrid = True
     )
     return graf_mix
 
-#GRAFICO DE QUESO VARIANTE DE LAS BARRAS
-def graficar_mix_queso(df_out_ratio_select_mix,colores_tecnologia):
-    graf_mix_queso=px.pie(
+#GRAFICO 4. MIX GENERACION EN QUESO------------------------------------------
+def graficar_mix_queso(df_out_ratio_select_mix, colores_tecnologia):
+    graf_mix_queso = px.pie(
         df_out_ratio_select_mix, 
-        names='tecnologia', 
-        values='%_mix',
-        color='tecnologia',
-        color_discrete_map=colores_tecnologia,
-        hover_name='tecnologia',
-        hole=.4
+        names = 'tecnologia', 
+        #values = '%_mix',
+        values = 'gen_TWh',
+        color = 'tecnologia',
+        color_discrete_map = colores_tecnologia,
+        hover_name = 'tecnologia',
+        hole = .4,
     )
-    graf_mix_queso.update_traces(textinfo='percent+label',
-                                 textposition='inside',
+
+    graf_mix_queso.update_traces(textinfo = 'percent+label',
+                                 textposition = 'inside',
                                  insidetextorientation='horizontal'
     )
     
-    graf_mix_queso.update_layout(
-        title=dict(
-            text='Aportación al mix de generación (%)',
-            x=.5,
-            xanchor='center',
-        )
-    )
+    #graf_mix_queso.update_layout(
+    #    title=dict(
+    #        text='Aportación al mix de generación (%)',
+    #        x=.5,
+    #        xanchor='center',
+    #    )
+    #)
 
     return graf_mix_queso
 
 
 
-
-
-
-#NO USADO
-def leyenda(colores_tecnologia):
-    leyenda=go.Figure()
-    
-    for tecnologia, color in colores_tecnologia.items():
-        leyenda.add_trace(go.Scatter(
-            x=[None],  # Valores ficticios (invisibles)
-            y=[None],
-            mode='markers',
-            marker=dict(size=20, color=color),
-            name=tecnologia  # Texto de la leyenda
-        ))
-
-    # Configurar solo la leyenda
-    leyenda.update_layout(
-        showlegend=True,  # Mostrar la leyenda
-        title='Tecnología',
-        xaxis=dict(visible=False),  # Ocultar ejes
-        yaxis=dict(visible=False),
-        margin=dict(t=0, b=0, l=0, r=0),
-        height=200
-
-    )
-    return leyenda
