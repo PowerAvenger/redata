@@ -13,7 +13,7 @@ def download_redata(category, widget, start_date, end_date, time_trunc):
     }
     end_point='https://apidatos.ree.es/es/datos'
     url=f'{end_point}/{category}/{widget}?start_date={start_date}T00:00&end_date={end_date}T23:59&time_trunc={time_trunc}'
-    request=requests.get(url)
+    request=requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
     data=request.json()
     datos = []
     for tech in data["included"]:
